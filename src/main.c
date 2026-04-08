@@ -69,15 +69,26 @@
 
 /*=========== DRONE CONTROL ===========*/
 volatile drone_MAIN TOP_DRONE = {.ARMED = 0};
+pthread_t t1, t2;
 
 #pragma region actuator list
+
 /*=============== SERVOS ==============*/
-extern srvSTR SERVO_TEST = {
+srvSTR camServo = {
+    .CHANNEL = 8,
+    .ANGLE = 0,
+    .DFLT_ANGLE = 0,
+    .MIN_ANGLE = -90,
     .MAX_ANGLE = 90,
-    .MIN_ANGLE = 0,
-    .DFLT_ANGLE = 45,
-    .ANGLE = 90,
-    .CHANNEL = 8};
+    .MIN_PWM = 500,
+    .MAX_PWM = 2500
+};
+
+motSTR MOT_TEST = {
+    .MAX_DUTY = 100,
+    .DUTY = 0,
+    .CHANNEL = 1
+};
 #pragma endregion
 
 void EXIT_TASK(int sig)
@@ -85,6 +96,10 @@ void EXIT_TASK(int sig)
     printf("\nEXIT\n");
     disarmDrone();
     logger_close();
+    pthread_cancel(t1);
+    pthread_cancel(t2);
+
+    sleep(1);
     exit(sig);
 }
 
@@ -149,12 +164,13 @@ void *thread_1_Telemetry(void *arg)
 // MAIN CONTROL THREAD: This Thread is made for controlling the drones actuators
 void *thread_2_Control(void *arg)
 {
+    
     control_STATES State = ATTACK;
     TOP_DRONE.DESIREDbodyAttitude4D = bodyAttitude4D_create(0.0f, 0.0f, 0.0f, 0.0f);
     float roll_ERROR;
     while (1)
     {
-
+        usleep(10);
         switch (State)
         {
         case IDLE:
@@ -172,14 +188,15 @@ void *thread_2_Control(void *arg)
                towards it. 
                */// ATTACK <-> RESURFACE s
 
-
+            static float prevError;
             float roll_ERROR = TOP_DRONE.DESIREDbodyAttitude4D.r - TOP_DRONE.ACTUALbodyAttitude4D.r;
-            if (fabsf(roll_ERROR) >= ROLL_CONT_DEADZONE){
+            if (fabsf(roll_ERROR) >= ROLL_CONT_DEADZONE){   //&& (fabsf(roll_ERROR) - fabsf(prevError)) >= 5){
+                prevError = roll_ERROR;
                 TOP_DRONE.bodyAtt4D.r = TOP_DRONE.DESIREDbodyAttitude4D.r - TOP_DRONE.ACTUALbodyAttitude4D.r;
                 printf("RollControll: %6.2f\n",TOP_DRONE.DESIREDbodyAttitude4D.r - TOP_DRONE.ACTUALbodyAttitude4D.r);
+                //set_MotorDuty(&MOT_TEST, 40);          
+                set_ServoAngle(&camServo,roll_ERROR);
             }
-
-          
 
  
             break;
@@ -241,7 +258,6 @@ int main(void)
         usleep(100);
     }
 
-    pthread_t t1, t2;
 
     pthread_create(&t1, NULL, thread_1_Telemetry, NULL);
     pthread_create(&t2, NULL, thread_2_Control, NULL);

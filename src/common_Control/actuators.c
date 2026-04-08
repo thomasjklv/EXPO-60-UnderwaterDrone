@@ -22,7 +22,7 @@ static uint16_t crc_acc(uint8_t d, uint16_t crc)
 {
     uint8_t t = d ^ (uint8_t)(crc & 0xFF);
     t ^= (t << 4);
-    return (crc >> 8) ^ ((uint16_t)t << 8) ^ ((uint16_t)t << 3) ^ (t >> 4);
+    return (uint16_t)((crc >> 8) ^ ((uint16_t)t << 8) ^ ((uint16_t)t << 3) ^ (t >> 4));
 }
 
 static int16_t clamp_Angle(const srvSTR *servo, int16_t angle)
@@ -42,6 +42,33 @@ static int16_t clamp_Angle(const srvSTR *servo, int16_t angle)
     return angle;
 }
 
+static int16_t clamp_Duty(const motSTR *motor, int16_t duty)
+{
+    if (motor == NULL) {
+        return 0;
+    }
+
+    if (duty < 0) {
+        return 0;
+    }
+
+    if (duty > motor->MAX_DUTY) {
+        return motor->MAX_DUTY;
+    }
+
+    return duty;
+}
+
+/*
+   Vereist in srvSTR:
+   - CHANNEL
+   - ANGLE
+   - DFLT_ANGLE
+   - MIN_ANGLE
+   - MAX_ANGLE
+   - MIN_PWM
+   - MAX_PWM
+*/
 uint16_t servo_AngleToPwm(const srvSTR *servo)
 {
     if (servo == NULL) {
@@ -49,36 +76,71 @@ uint16_t servo_AngleToPwm(const srvSTR *servo)
     }
 
     int16_t angle = clamp_Angle(servo, servo->ANGLE);
-    int16_t range = servo->MAX_ANGLE - servo->MIN_ANGLE;
+    int16_t angleRange = servo->MAX_ANGLE - servo->MIN_ANGLE;
+    int16_t pwmRange   = servo->MAX_PWM   - servo->MIN_PWM;
 
-    if (range <= 0) {
+    if (angleRange <= 0) {
         return 1500;
     }
 
-    /* Linear map:
-       MIN_ANGLE -> 1000 us
-       MAX_ANGLE -> 2000 us
-    */
-    int32_t pwm = 1000 + ((int32_t)(angle - servo->MIN_ANGLE) * 1000) / range;
-
-    if (pwm < 1000) {
-        pwm = 1000;
+    if (pwmRange <= 0) {
+        return 1500;
     }
 
-    if (pwm > 2000) {
-        pwm = 2000;
+    int32_t pwm = servo->MIN_PWM +
+                  ((int32_t)(angle - servo->MIN_ANGLE) * pwmRange) / angleRange;
+
+    if (pwm < servo->MIN_PWM) {
+        pwm = servo->MIN_PWM;
+    }
+
+    if (pwm > servo->MAX_PWM) {
+        pwm = servo->MAX_PWM;
     }
 
     return (uint16_t)pwm;
 }
 
-static void send_servo_raw(uint8_t channel, float pwm)
+uint16_t motor_DutyToPwm(const motSTR *motor)
+{
+    if (motor == NULL) {
+        return 1000;
+    }
+
+    int16_t duty = clamp_Duty(motor, motor->DUTY);
+    int16_t maxDuty = motor->MAX_DUTY;
+
+    if (maxDuty <= 0) {
+        return 1000;
+    }
+
+    /* Linear map:
+       0 duty       -> 1000 us
+       MAX_DUTY     -> 2000 us
+    */
+    uint32_t pwm = 1000 + ((uint32_t)duty * 1000U) / (uint32_t)maxDuty;
+
+    if (pwm < 1000U) {
+        pwm = 1000U;
+    }
+
+    if (pwm > 2000U) {
+        pwm = 2000U;
+    }
+
+    return (uint16_t)pwm;
+}
+
+static void send_channel_raw(uint8_t channel, float pwm)
 {
     uint8_t payload[33];
-    memset(payload, 0, sizeof(payload));
-
-    float p1 = (float)channel;
+    uint8_t pkt[41];
+    uint16_t crc;
     uint16_t cmd = MAV_CMD_DO_SET_SERVO;
+    float p1 = (float)channel;
+
+    memset(payload, 0, sizeof(payload));
+    memset(pkt, 0, sizeof(pkt));
 
     /* COMMAND_LONG payload layout */
     memcpy(payload + 0,  &p1,  4);   /* param1 = channel */
@@ -88,21 +150,19 @@ static void send_servo_raw(uint8_t channel, float pwm)
     payload[31] = 0;                 /* target_component */
     payload[32] = 0;                 /* confirmation */
 
-    uint8_t pkt[41];
     pkt[0] = MAVLINK_STX;
-    pkt[1] = 33;          /* payload length */
+    pkt[1] = 33;
     pkt[2] = seq++;
-    pkt[3] = 255;         /* source system */
-    pkt[4] = 0;           /* source component */
+    pkt[3] = 255;
+    pkt[4] = 0;
     pkt[5] = MSG_COMMAND_LONG;
 
     memcpy(pkt + 6, payload, 33);
 
-    uint16_t crc = 0xFFFF;
+    crc = 0xFFFF;
     for (int i = 1; i <= 38; i++) {
         crc = crc_acc(pkt[i], crc);
     }
-
     crc = crc_acc(CRC_EXTRA, crc);
 
     pkt[39] = (uint8_t)(crc & 0xFF);
@@ -143,7 +203,19 @@ void set_ServoAngle(srvSTR *servo, int16_t angle)
     servo->ANGLE = clamp_Angle(servo, angle);
 
     uint16_t pwm = servo_AngleToPwm(servo);
-    send_servo_raw(servo->CHANNEL, (float)pwm);
+    send_channel_raw(servo->CHANNEL, (float)pwm);
+}
+
+void set_MotorDuty(motSTR *motor, int16_t newDUTY)
+{
+    if (motor == NULL) {
+        return;
+    }
+
+    motor->DUTY = clamp_Duty(motor, newDUTY);
+
+    uint16_t pwm = motor_DutyToPwm(motor);
+    send_channel_raw(motor->CHANNEL, (float)pwm);
 }
 
 void reset_ServoAngle(srvSTR *servo)

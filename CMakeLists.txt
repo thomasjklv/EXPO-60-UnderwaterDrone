@@ -24,6 +24,13 @@ target_compile_options(torpedo_main PRIVATE
     -Wextra
 )
 
-# pthread support (voor multithreading)
 find_package(Threads REQUIRED)
 target_link_libraries(torpedo_main PRIVATE Threads::Threads)
+
+get_filename_component(PARENT_DIR ${CMAKE_SOURCE_DIR} DIRECTORY)
+
+add_custom_command(TARGET torpedo_main POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy
+        $<TARGET_FILE:torpedo_main>
+        ${PARENT_DIR}/torpedo_main 
+)

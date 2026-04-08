@@ -11,15 +11,22 @@
 /* =========== Structs =========== */
 typedef struct
 {
-    int16_t MAX_ANGLE;
-    int16_t MIN_ANGLE;
-    int16_t DFLT_ANGLE;
-
-    int16_t ANGLE;
-
-    uint8_t CHANNEL;
-
+    uint8_t  CHANNEL;
+    int16_t  ANGLE;
+    int16_t  DFLT_ANGLE;
+    int16_t  MIN_ANGLE;
+    int16_t  MAX_ANGLE;
+    uint16_t MIN_PWM;
+    uint16_t MAX_PWM;
 } srvSTR;
+
+typedef struct
+{
+    uint8_t CHANNEL;
+    int16_t DUTY;
+    int16_t MAX_DUTY;
+} motSTR;
+
 
 
 
@@ -28,6 +35,7 @@ typedef struct
 
 /* ========== Functions ========== */
 void set_ServoAngle(srvSTR *servo, int16_t angle);
+void set_MotorDuty(motSTR *motor, int16_t newDUTY);
 void reset_ServoAngle(srvSTR *servo);
 uint16_t servo_AngleToPwm(const srvSTR *servo);
 /* =============================== */
