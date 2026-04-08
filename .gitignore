@@ -1,0 +1,12 @@
+# Build files
+build/
+
+# Logs
+src/logs/
+
+# VS Code
+.vscode/
+
+# OS
+*.swp
+*.tmp
