@@ -63,8 +63,6 @@ static void update_mavlink(void)
 
         if (mavlink_parse_char(MAVLINK_COMM_0, buffer[i], &msg, &status)) {
 
-            /* ================= ATTITUDE ================= */
-
             if (msg.msgid == MAVLINK_MSG_ID_ATTITUDE) {
 
                 mavlink_attitude_t att;
@@ -79,8 +77,6 @@ static void update_mavlink(void)
                 gyro.z = att.yawspeed;
             }
 
-            /* ================= GPS ================= */
-
             if (msg.msgid == MAVLINK_MSG_ID_GLOBAL_POSITION_INT) {
 
                 mavlink_global_position_int_t pos;
@@ -90,8 +86,6 @@ static void update_mavlink(void)
                 gps.lon_deg = ((double)pos.lon) / 10000000.0;
                 gps.alt_m   = ((float)pos.relative_alt) / 1000.0f;
             }
-
-            /* ================= IMU ================= */
 
             if (msg.msgid == MAVLINK_MSG_ID_RAW_IMU) {
 
@@ -210,9 +204,9 @@ bodyAttitude4D get_BODY_ATTI4D(void)
     update_mavlink();
 
     return bodyAttitude4D_create(
-        rad_to_deg(yaw_rad),    // x = yaw
-        rad_to_deg(pitch_rad),  // y = pitch
-        0.0f,                   // z = surge (nog geen bron in jouw code)
-        rad_to_deg(roll_rad)    // r = roll
+        rad_to_deg(yaw_rad),
+        rad_to_deg(pitch_rad),
+        0.0f,
+        rad_to_deg(roll_rad)
     );
 }

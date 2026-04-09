@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include "transform.h"
 
-typedef struct 
+typedef struct
 {
     bodyAttitude4D bodyAtt4D;
     bodyAttitude4D DESIREDbodyAttitude4D;
@@ -23,6 +23,7 @@ typedef struct
 void armDrone(void);
 void disarmDrone(void);
 bodyAttitude4D get_BODY_ATTI4D(void);
+
 /* ================= GYRO ================= */
 vector3 get_GYRO_V3(void);
 
@@ -31,14 +32,14 @@ vector3 get_COMPS_V3(void);
 float get_YAW_HEADING(void);
 float get_PITCH_HEADING(void);
 float get_ROLL_HEADING(void);
+
 /* ================= Accel ================= */
 vector3 get_ACCEL_V3(void);
 
 /* ================= CONVERSIONS ================= */
-float rad_to_deg(float rad);    
+float rad_to_deg(float rad);
 
 /* ================= GPS ================= */
 gpsSTR get_GPS(void);
-
 
 #endif

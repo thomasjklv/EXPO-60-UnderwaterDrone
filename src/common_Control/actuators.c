@@ -59,16 +59,6 @@ static int16_t clamp_Duty(const motSTR *motor, int16_t duty)
     return duty;
 }
 
-/*
-   Vereist in srvSTR:
-   - CHANNEL
-   - ANGLE
-   - DFLT_ANGLE
-   - MIN_ANGLE
-   - MAX_ANGLE
-   - MIN_PWM
-   - MAX_PWM
-*/
 uint16_t servo_AngleToPwm(const srvSTR *servo)
 {
     if (servo == NULL) {
@@ -114,11 +104,7 @@ uint16_t motor_DutyToPwm(const motSTR *motor)
         return 1000;
     }
 
-    /* Linear map:
-       0 duty       -> 1000 us
-       MAX_DUTY     -> 2000 us
-    */
-    uint32_t pwm = 1000 + ((uint32_t)duty * 1000U) / (uint32_t)maxDuty;
+    uint32_t pwm = 1000U + ((uint32_t)duty * 1000U) / (uint32_t)maxDuty;
 
     if (pwm < 1000U) {
         pwm = 1000U;
@@ -142,13 +128,12 @@ static void send_channel_raw(uint8_t channel, float pwm)
     memset(payload, 0, sizeof(payload));
     memset(pkt, 0, sizeof(pkt));
 
-    /* COMMAND_LONG payload layout */
-    memcpy(payload + 0,  &p1,  4);   /* param1 = channel */
-    memcpy(payload + 4,  &pwm, 4);   /* param2 = pwm */
-    memcpy(payload + 28, &cmd, 2);   /* command */
-    payload[30] = 1;                 /* target_system */
-    payload[31] = 0;                 /* target_component */
-    payload[32] = 0;                 /* confirmation */
+    memcpy(payload + 0,  &p1,  4);
+    memcpy(payload + 4,  &pwm, 4);
+    memcpy(payload + 28, &cmd, 2);
+    payload[30] = 1;
+    payload[31] = 0;
+    payload[32] = 0;
 
     pkt[0] = MAVLINK_STX;
     pkt[1] = 33;
