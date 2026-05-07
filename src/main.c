@@ -59,7 +59,7 @@ srvSTR yawFinRight = {
 };
 
 srvSTR pitchFinLeft = {
-    .CHANNEL = 3,
+    .CHANNEL = 7,
     .ANGLE = 0,
     .DFLT_ANGLE = 0,
     .MIN_ANGLE = -30,
@@ -101,7 +101,7 @@ srvSTR rollFinRight = {
 motSTR mainThruster = {
     .MAX_DUTY = 100,
     .DUTY = 0,
-    .CHANNEL = 7
+    .CHANNEL = 0
 };
 #pragma endregion
 
@@ -110,7 +110,7 @@ void EXIT_TASK(int sig)
     printf("\nEXIT\n");
     vehicle_set_all_neutral(&g_vehicle);
     disarmDrone();
-    logger_close();
+    if (ENABLELOGGER) { logger_close(); }
     pthread_cancel(t1);
     pthread_cancel(t2);
 
@@ -200,7 +200,7 @@ void *thread_2_Control(void *arg)
         float dt_s = (float)(now - last_time);
         last_time = now;
 
-        usleep(10000);
+        usleep(1);
 
         switch (State)
         {
@@ -229,7 +229,8 @@ void *thread_2_Control(void *arg)
 #pragma region Main
 int main(void)
 {
-    logger_init();
+    if (ENABLELOGGER) {    logger_init();}
+
 
     vehicle_config_init_default(&g_vehicle,
                                 &yawFinLeft,

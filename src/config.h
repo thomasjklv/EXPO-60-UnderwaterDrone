@@ -2,8 +2,9 @@
 #define CONFIG_H
 
 /* ===== DEBUG ===== */
-#define LOG_FOLDER "logs"
-#define LOG_RATE_HZ 10
+#define ENABLELOGGER 0
+#define LOG_FOLDER "/logs"
+#define LOG_RATE_HZ 1
 #define LOG_AUTO_FLUSH 1
 #define LOGGER_MAX_COLUMNS 32
 #define LOGGER_MAX_NAME_LEN 64
@@ -20,7 +21,7 @@
 /*==================*/
 
 /* ===== DRONE Control ===== */
-#define ROLL_CONT_DEADZONE 5.0f
+#define ROLL_CONT_DEADZONE 0.1f
 
 #define CONTROL_DEFAULT_FORWARD_SPEED_MPS 1.50f
 
