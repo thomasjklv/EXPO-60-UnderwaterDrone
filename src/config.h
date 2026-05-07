@@ -29,6 +29,9 @@
 #define CONTROL_KP_PITCH_NM_PER_DEG 0.30f
 #define CONTROL_KP_YAW_NM_PER_DEG   0.22f
 
+//TODO: Control system I and D gains.
+//TODO: Make control PID pramaters configureable
+
 #define CONTROL_MAX_SURGE_FORCE_N   40.0f
 #define CONTROL_MAX_ROLL_MOMENT_NM   6.0f
 #define CONTROL_MAX_PITCH_MOMENT_NM  6.0f
