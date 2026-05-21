@@ -19,6 +19,12 @@ typedef struct
     gpsSTR gps;
 } drone_MAIN;
 
+/* ================= TELEMETRY CACHE ================= */
+void telemetry_poll(void);
+void telemetry_request_default_intervals(void);
+bool telemetry_is_attitude_recent(float timeout_s);
+double telemetry_get_attitude_age_s(void);
+
 /* ================= DRONE ================= */
 void armDrone(void);
 void disarmDrone(void);

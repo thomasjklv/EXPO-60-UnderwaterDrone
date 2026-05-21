@@ -20,6 +20,23 @@
 #define ACTUATOR_PORT 14550
 /*==================*/
 
+/* ===== LOOP TIMING ===== */
+#define TELEMETRY_LOOP_PERIOD_US 5000
+#define CONTROL_LOOP_PERIOD_US   10000
+#define TELEMETRY_ATTITUDE_TIMEOUT_S 0.25f
+/*=====================*/
+
+/* ===== MAVLINK MESSAGE RATES ===== */
+#define TELEMETRY_ATTITUDE_INTERVAL_US        20000
+#define TELEMETRY_RAW_IMU_INTERVAL_US         50000
+#define TELEMETRY_GLOBAL_POSITION_INTERVAL_US 200000
+#define TELEMETRY_RATE_REQUEST_RETRY_S        2.0
+/*==================================*/
+
+/* ===== ACTUATOR OUTPUT ===== */
+#define ACTUATOR_COMMAND_EPSILON 0.5f
+/*===========================*/
+
 /* ===== DRONE Control ===== */
 #define ROLL_CONT_DEADZONE 0.1f
 
@@ -29,13 +46,10 @@
 #define CONTROL_KP_PITCH_NM_PER_DEG 0.30f
 #define CONTROL_KP_YAW_NM_PER_DEG   0.22f
 
-//TODO: Control system I and D gains.
-//TODO: Make control PID pramaters configureable
-
-#define CONTROL_MAX_SURGE_FORCE_N   40.0f
-#define CONTROL_MAX_ROLL_MOMENT_NM   6.0f
-#define CONTROL_MAX_PITCH_MOMENT_NM  6.0f
-#define CONTROL_MAX_YAW_MOMENT_NM    6.0f
+#define CONTROL_MAX_SURGE_FORCE_N    40.0f
+#define CONTROL_MAX_ROLL_MOMENT_NM    6.0f
+#define CONTROL_MAX_PITCH_MOMENT_NM   6.0f
+#define CONTROL_MAX_YAW_MOMENT_NM     6.0f
 
 #define ALLOCATOR_FEASIBILITY_EPSILON 0.75f
 /*==================*/

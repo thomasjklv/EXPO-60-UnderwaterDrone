@@ -28,8 +28,8 @@ static actuator_t make_fin(const char *name,
     actuator.cmd_neutral = (float)servo->DFLT_ANGLE;
     actuator.last_command = actuator.cmd_neutral;
 
-    actuator.rate_limit_units_per_s = 120.0f;
-    actuator.deadzone = 0.30f;
+    actuator.rate_limit_units_per_s = 360.0f;
+    actuator.deadzone = 0.10f;
     actuator.efficiency = 1.0f;
 
     actuator.model.fin.area_m2 = 0.0035f;
@@ -66,7 +66,7 @@ static actuator_t make_thruster(const char *name,
     actuator.cmd_neutral = 0.0f;
     actuator.last_command = 0.0f;
 
-    actuator.rate_limit_units_per_s = 80.0f;
+    actuator.rate_limit_units_per_s = 250.0f;
     actuator.deadzone = 0.0f;
     actuator.efficiency = 1.0f;
 
@@ -101,17 +101,6 @@ void vehicle_config_init_default(vehicle_config_t *vehicle,
     vehicle->axis_weight[CA_AXIS_ROLL]  = 1.5f;
     vehicle->axis_weight[CA_AXIS_PITCH] = 1.5f;
     vehicle->axis_weight[CA_AXIS_YAW]   = 2.0f;
-
-    /*
-      Coordinate system assumptions for this default config:
-      x = forward
-      y = starboard/right
-      z = down
-
-      Positive yaw fins produce lateral force in +y.
-      Positive pitch fins produce vertical force in +z.
-      Positive roll fin lift is also taken in +z, with roll coming from the y-offset.
-    */
 
     vehicle->actuators[0] = make_fin("yaw_left",
                                      vector3_create(-0.45f, -0.12f, 0.00f),

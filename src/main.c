@@ -133,6 +133,8 @@ void *thread_1_Telemetry(void *arg)
 
     while (1)
     {
+        telemetry_poll();
+
         TOP_DRONE.gyro_RAD = get_GYRO_V3();
         TOP_DRONE.comps_RAD = get_COMPS_V3();
         TOP_DRONE.compsYAW = get_YAW_HEADING();
@@ -165,14 +167,15 @@ void *thread_1_Telemetry(void *arg)
 
         if (sPrintTelemetry)
         {
-            printf("\rYaw:%6.2f deg  Pitch:%6.2f deg  Roll:%6.2f deg",
-                   get_YAW_HEADING(),
-                   get_PITCH_HEADING(),
-                   get_ROLL_HEADING());
+            printf("\rYaw:%6.2f deg  Pitch:%6.2f deg  Roll:%6.2f deg  AttAge:%5.3f s",
+                   TOP_DRONE.compsYAW,
+                   TOP_DRONE.compsPITCH,
+                   TOP_DRONE.ACTUALbodyAttitude4D.r,
+                   telemetry_get_attitude_age_s());
             fflush(stdout);
         }
 
-        usleep(10000);
+        usleep(TELEMETRY_LOOP_PERIOD_US);
     }
 
     return NULL;
@@ -200,7 +203,9 @@ void *thread_2_Control(void *arg)
         float dt_s = (float)(now - last_time);
         last_time = now;
 
-        usleep(1);
+        if ((dt_s <= 0.0f) || (dt_s > 0.5f)) {
+            dt_s = (float)CONTROL_LOOP_PERIOD_US * 1e-6f;
+        }
 
         switch (State)
         {
@@ -209,7 +214,11 @@ void *thread_2_Control(void *arg)
                 break;
 
             case ATTACK:
-                control_update((drone_MAIN *)&TOP_DRONE, &g_vehicle, dt_s);
+                if (telemetry_is_attitude_recent(TELEMETRY_ATTITUDE_TIMEOUT_S)) {
+                    control_update((drone_MAIN *)&TOP_DRONE, &g_vehicle, dt_s);
+                } else {
+                    vehicle_set_all_neutral(&g_vehicle);
+                }
                 break;
 
             case RESURFACE:
@@ -220,6 +229,8 @@ void *thread_2_Control(void *arg)
                 State = IDLE;
                 break;
         }
+
+        usleep(CONTROL_LOOP_PERIOD_US);
     }
 
     return NULL;
@@ -229,8 +240,7 @@ void *thread_2_Control(void *arg)
 #pragma region Main
 int main(void)
 {
-    if (ENABLELOGGER) {    logger_init();}
-
+    if (ENABLELOGGER) { logger_init(); }
 
     vehicle_config_init_default(&g_vehicle,
                                 &yawFinLeft,
