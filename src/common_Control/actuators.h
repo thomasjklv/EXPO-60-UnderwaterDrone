@@ -17,9 +17,13 @@ typedef struct
 
 typedef struct
 {
-    uint8_t CHANNEL;
-    int16_t DUTY;
-    int16_t MAX_DUTY;
+    uint8_t  CHANNEL;
+    int16_t  DUTY;
+    int16_t  DFLT_DUTY;
+    int16_t  MIN_DUTY;
+    int16_t  MAX_DUTY;
+    uint16_t MIN_PWM;
+    uint16_t MAX_PWM;
 } motSTR;
 /* =============================== */
 

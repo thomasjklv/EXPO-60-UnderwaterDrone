@@ -80,8 +80,8 @@ static int16_t clamp_Duty(const motSTR *motor, int16_t duty)
         return 0;
     }
 
-    if (duty < 0) {
-        return 0;
+    if (duty < motor->MIN_DUTY) {
+        return motor->MIN_DUTY;
     }
 
     if (duty > motor->MAX_DUTY) {
@@ -125,32 +125,35 @@ uint16_t servo_AngleToPwm(const srvSTR *servo)
 
 uint16_t motor_DutyToPwm(const motSTR *motor)
 {
+    int32_t duty_range;
+    int32_t pwm_range;
+    int32_t duty_shifted;
+    int32_t pwm;
+
     if (motor == NULL) {
-        return 1000;
+        return 1500;
     }
 
-    {
-        int16_t duty = clamp_Duty(motor, motor->DUTY);
-        int16_t maxDuty = motor->MAX_DUTY;
+    duty_range = (int32_t)motor->MAX_DUTY - (int32_t)motor->MIN_DUTY;
+    pwm_range  = (int32_t)motor->MAX_PWM  - (int32_t)motor->MIN_PWM;
 
-        if (maxDuty <= 0) {
-            return 1000;
-        }
-
-        {
-            uint32_t pwm = 1000U + ((uint32_t)duty * 1000U) / (uint32_t)maxDuty;
-
-            if (pwm < 1000U) {
-                pwm = 1000U;
-            }
-
-            if (pwm > 2000U) {
-                pwm = 2000U;
-            }
-
-            return (uint16_t)pwm;
-        }
+    if ((duty_range <= 0) || (pwm_range <= 0)) {
+        return motor->MIN_PWM;
     }
+
+    duty_shifted = (int32_t)clamp_Duty(motor, motor->DUTY) - (int32_t)motor->MIN_DUTY;
+
+    pwm = (int32_t)motor->MIN_PWM + (duty_shifted * pwm_range) / duty_range;
+
+    if (pwm < (int32_t)motor->MIN_PWM) {
+        pwm = motor->MIN_PWM;
+    }
+
+    if (pwm > (int32_t)motor->MAX_PWM) {
+        pwm = motor->MAX_PWM;
+    }
+
+    return (uint16_t)pwm;
 }
 
 static void send_channel_raw(uint8_t channel, uint16_t pwm)

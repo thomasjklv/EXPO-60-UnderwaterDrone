@@ -1,0 +1,53 @@
+{
+  "vehicle": {
+    "water_density_kg_m3": 1025,
+    "axis_weight_surge": 1,
+    "axis_weight_roll": 1.5,
+    "axis_weight_pitch": 1.5,
+    "axis_weight_yaw": 2
+  },
+  "actuators": [
+    {
+      "name": "roll_Fin_L",
+      "kind": "fin",
+      "enabled": true,
+      "inverted": false,
+      "channel": 7,
+      "cmd_min": -30,
+      "cmd_neutral": 0,
+      "cmd_max": 30,
+      "position": {
+        "x": 0.2,
+        "y": -0.2,
+        "z": 0
+      },
+      "force_dir": {
+        "x": 0,
+        "y": 0,
+        "z": 1
+      },
+      "area_m2": 0.006
+    },
+    {
+      "name": "pitch_Fin_R",
+      "kind": "fin",
+      "enabled": true,
+      "inverted": false,
+      "channel": 8,
+      "cmd_min": -30,
+      "cmd_neutral": 0,
+      "cmd_max": 30,
+      "position": {
+        "x": -40,
+        "y": 0,
+        "z": 0
+      },
+      "force_dir": {
+        "x": 0,
+        "y": 0,
+        "z": 1
+      },
+      "area_m2": 0.006
+    }
+  ]
+}

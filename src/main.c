@@ -4,113 +4,37 @@
 ===============================================================================
 */
 
-#pragma region Includes
 #include <stdio.h>
-#include <stdint.h>
 #include <stdbool.h>
-#include <string.h>
+#include <stdlib.h>
 #include <unistd.h>
-#include <arpa/inet.h>
-#include <sys/socket.h>
 #include <pthread.h>
-#include <math.h>
 #include <signal.h>
 #include <time.h>
-#include "common/mavlink.h"
-#include "math.h"
 
 #include "config.h"
 
-#include "common_Control/actuators.h"
 #include "common_Control/telemetry.h"
-#include "common_Control/transform.h"
 #include "common_Control/control.h"
 #include "common_Control/vehicle_config.h"
-#include "common_Control/actuator_model.h"
 #include "Debug/logger.h"
 
-#define LISTEN_PORT 14670
-
-volatile drone_MAIN TOP_DRONE = {.ARMED = 0};
+volatile drone_MAIN TOP_DRONE = { .ARMED = false };
 pthread_t t1, t2;
 
 vehicle_config_t g_vehicle;
 
-#pragma region actuator list
-
-srvSTR yawFinLeft = {
-    .CHANNEL = 1,
-    .ANGLE = 0,
-    .DFLT_ANGLE = 0,
-    .MIN_ANGLE = -30,
-    .MAX_ANGLE = 30,
-    .MIN_PWM = 1000,
-    .MAX_PWM = 2000
-};
-
-srvSTR yawFinRight = {
-    .CHANNEL = 2,
-    .ANGLE = 0,
-    .DFLT_ANGLE = 0,
-    .MIN_ANGLE = -30,
-    .MAX_ANGLE = 30,
-    .MIN_PWM = 1000,
-    .MAX_PWM = 2000
-};
-
-srvSTR pitchFinLeft = {
-    .CHANNEL = 7,
-    .ANGLE = 0,
-    .DFLT_ANGLE = 0,
-    .MIN_ANGLE = -30,
-    .MAX_ANGLE = 30,
-    .MIN_PWM = 1000,
-    .MAX_PWM = 2000
-};
-
-srvSTR pitchFinRight = {
-    .CHANNEL = 4,
-    .ANGLE = 0,
-    .DFLT_ANGLE = 0,
-    .MIN_ANGLE = -30,
-    .MAX_ANGLE = 30,
-    .MIN_PWM = 1000,
-    .MAX_PWM = 2000
-};
-
-srvSTR rollFinLeft = {
-    .CHANNEL = 5,
-    .ANGLE = 0,
-    .DFLT_ANGLE = 0,
-    .MIN_ANGLE = -30,
-    .MAX_ANGLE = 30,
-    .MIN_PWM = 1000,
-    .MAX_PWM = 2000
-};
-
-srvSTR rollFinRight = {
-    .CHANNEL = 8,
-    .ANGLE = 0,
-    .DFLT_ANGLE = 0,
-    .MIN_ANGLE = -30,
-    .MAX_ANGLE = 30,
-    .MIN_PWM = 1000,
-    .MAX_PWM = 2000
-};
-
-motSTR mainThruster = {
-    .MAX_DUTY = 100,
-    .DUTY = 0,
-    .CHANNEL = 0
-};
-#pragma endregion
-
-void EXIT_TASK(int sig)
+static void EXIT_TASK(int sig)
 {
     printf("\nEXIT\n");
+
     vehicle_set_all_neutral(&g_vehicle);
     disarmDrone();
-    if (ENABLELOGGER) { logger_close(); }
+
+    if (ENABLELOGGER) {
+        logger_close();
+    }
+
     pthread_cancel(t1);
     pthread_cancel(t2);
 
@@ -118,7 +42,7 @@ void EXIT_TASK(int sig)
     exit(sig);
 }
 
-double get_time_s(void)
+static double get_time_s(void)
 {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -126,8 +50,7 @@ double get_time_s(void)
     return ts.tv_sec + ts.tv_nsec * 1e-9;
 }
 
-#pragma region Telemetry Thread
-void *thread_1_Telemetry(void *arg)
+static void *thread_1_Telemetry(void *arg)
 {
     (void)arg;
 
@@ -143,25 +66,16 @@ void *thread_1_Telemetry(void *arg)
         TOP_DRONE.gps = get_GPS();
         TOP_DRONE.ACTUALbodyAttitude4D = get_BODY_ATTI4D();
 
+        if (ENABLELOGGER)
         {
-            double t = get_time_s();
-
             logger_begin_row();
-            logger_set_double("Tijd", t);
+            logger_set_double("Tijd", get_time_s());
             logger_set_float("Yaw_deg", TOP_DRONE.compsYAW);
             logger_set_float("Pitch_deg", TOP_DRONE.compsPITCH);
-
+            logger_set_float("Roll_deg", TOP_DRONE.ACTUALbodyAttitude4D.r);
             logger_set_float("Gyro_X", TOP_DRONE.gyro_RAD.x);
             logger_set_float("Gyro_Y", TOP_DRONE.gyro_RAD.y);
             logger_set_float("Gyro_Z", TOP_DRONE.gyro_RAD.z);
-
-            logger_set_float("Compass_X", TOP_DRONE.comps_RAD.x);
-            logger_set_float("Compass_Y", TOP_DRONE.comps_RAD.y);
-            logger_set_float("Compass_Z", TOP_DRONE.comps_RAD.z);
-
-            logger_set_float("Accel_X", TOP_DRONE.accel_V3.x);
-            logger_set_float("Accel_Y", TOP_DRONE.accel_V3.y);
-            logger_set_float("Accel_Z", TOP_DRONE.accel_V3.z);
             logger_end_row();
         }
 
@@ -180,10 +94,8 @@ void *thread_1_Telemetry(void *arg)
 
     return NULL;
 }
-#pragma endregion
 
-#pragma region Control Thread
-void *thread_2_Control(void *arg)
+static void *thread_2_Control(void *arg)
 {
     control_STATES State = ATTACK;
     double last_time = get_time_s();
@@ -191,10 +103,10 @@ void *thread_2_Control(void *arg)
     (void)arg;
 
     TOP_DRONE.DESIREDbodyAttitude4D = bodyAttitude4D_create(
-        0.0f,   /* desired yaw deg   */
-        0.0f,   /* desired pitch deg */
-        20.0f,  /* desired surge force request in N */
-        0.0f    /* desired roll deg  */
+        0.0f,
+        0.0f,
+        20.0f,
+        0.0f
     );
 
     while (1)
@@ -235,24 +147,19 @@ void *thread_2_Control(void *arg)
 
     return NULL;
 }
-#pragma endregion
 
-#pragma region Main
 int main(void)
 {
-    if (ENABLELOGGER) { logger_init(); }
+    if (ENABLELOGGER) {
+        logger_init();
+    }
 
-    vehicle_config_init_default(&g_vehicle,
-                                &yawFinLeft,
-                                &yawFinRight,
-                                &pitchFinLeft,
-                                &pitchFinRight,
-                                &rollFinLeft,
-                                &rollFinRight,
-                                &mainThruster);
+    vehicle_config_init_default(&g_vehicle);
 
     signal(SIGINT, EXIT_TASK);
+
     disarmDrone();
+    telemetry_request_default_intervals();
 
     if (AUTOARM)
     {
@@ -261,10 +168,14 @@ int main(void)
         armDrone();
         TOP_DRONE.ARMED = true;
         printf("DRONE ARMED\n");
-        logger_begin_row();
-        logger_set_double("Tijd", get_time_s());
-        logger_set_string("ARMSTATUS", "ARMED");
-        logger_end_row();
+
+        if (ENABLELOGGER)
+        {
+            logger_begin_row();
+            logger_set_double("Tijd", get_time_s());
+            logger_set_string("ARMSTATUS", "ARMED");
+            logger_end_row();
+        }
     }
 
     while (!TOP_DRONE.ARMED)
@@ -279,4 +190,3 @@ int main(void)
     pthread_join(t2, NULL);
     return 0;
 }
-#pragma endregion

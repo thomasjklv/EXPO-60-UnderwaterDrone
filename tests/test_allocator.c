@@ -33,14 +33,6 @@ static void print_result(const char *label,
 
 int main(void)
 {
-    srvSTR yaw_left =  { .CHANNEL = 1, .ANGLE = 0, .DFLT_ANGLE = 0, .MIN_ANGLE = -30, .MAX_ANGLE = 30, .MIN_PWM = 1000, .MAX_PWM = 2000 };
-    srvSTR yaw_right = { .CHANNEL = 2, .ANGLE = 0, .DFLT_ANGLE = 0, .MIN_ANGLE = -30, .MAX_ANGLE = 30, .MIN_PWM = 1000, .MAX_PWM = 2000 };
-    srvSTR pitch_left =  { .CHANNEL = 3, .ANGLE = 0, .DFLT_ANGLE = 0, .MIN_ANGLE = -30, .MAX_ANGLE = 30, .MIN_PWM = 1000, .MAX_PWM = 2000 };
-    srvSTR pitch_right = { .CHANNEL = 4, .ANGLE = 0, .DFLT_ANGLE = 0, .MIN_ANGLE = -30, .MAX_ANGLE = 30, .MIN_PWM = 1000, .MAX_PWM = 2000 };
-    srvSTR roll_left =  { .CHANNEL = 5, .ANGLE = 0, .DFLT_ANGLE = 0, .MIN_ANGLE = -30, .MAX_ANGLE = 30, .MIN_PWM = 1000, .MAX_PWM = 2000 };
-    srvSTR roll_right = { .CHANNEL = 6, .ANGLE = 0, .DFLT_ANGLE = 0, .MIN_ANGLE = -30, .MAX_ANGLE = 30, .MIN_PWM = 1000, .MAX_PWM = 2000 };
-    motSTR main_thruster = { .CHANNEL = 7, .DUTY = 0, .MAX_DUTY = 100 };
-
     vehicle_config_t vehicle;
     allocator_runtime_t runtime;
     allocator_result_t result;
@@ -50,14 +42,7 @@ int main(void)
     wrench4_t pure_roll = wrench4_create(0.0f, 2.0f, 0.0f, 0.0f);
     wrench4_t combined = wrench4_create(15.0f, 1.0f, 1.0f, 2.0f);
 
-    vehicle_config_init_default(&vehicle,
-                                &yaw_left,
-                                &yaw_right,
-                                &pitch_left,
-                                &pitch_right,
-                                &roll_left,
-                                &roll_right,
-                                &main_thruster);
+    vehicle_config_init_default(&vehicle);
 
     runtime.dt_s = 1.0f;
     runtime.forward_speed_mps = 1.50f;
