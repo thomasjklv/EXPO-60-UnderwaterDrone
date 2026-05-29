@@ -1,0 +1,284 @@
+{
+  "vehicle": {
+    "water_density_kg_m3": 1025.0,
+    "damping_lambda": 0.01,
+    "authority_epsilon": 1e-05,
+    "axis_weight_surge": 1.0,
+    "axis_weight_roll": 1.5,
+    "axis_weight_pitch": 1.5,
+    "axis_weight_yaw": 2.0
+  },
+  "actuators": [
+    {
+      "id": "09f4e6ab",
+      "name": "yaw_left",
+      "type": "fin",
+      "driver_type": "servo",
+      "enabled": true,
+      "inverted": false,
+      "channel": 1,
+      "cmd_min": -30.0,
+      "cmd_max": 30.0,
+      "cmd_neutral": 0.0,
+      "pwm_min": 1000,
+      "pwm_max": 2000,
+      "position_m": {
+        "x": -0.45,
+        "y": -0.12,
+        "z": 0.0
+      },
+      "force_dir_body": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "direct_moment_per_cmd_body": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "rate_limit_units_per_s": 360.0,
+      "deadzone": 0.1,
+      "efficiency": 1.0,
+      "fin_model": {
+        "area_m2": 0.0035,
+        "cl_alpha_per_rad": 3.8,
+        "deflection_rad_per_cmd": 0.01745329252,
+        "min_speed_mps": 0.2
+      },
+      "thruster_model": null
+    },
+    {
+      "id": "1f190dee",
+      "name": "yaw_right",
+      "type": "fin",
+      "driver_type": "servo",
+      "enabled": true,
+      "inverted": false,
+      "channel": 2,
+      "cmd_min": -30.0,
+      "cmd_max": 30.0,
+      "cmd_neutral": 0.0,
+      "pwm_min": 1000,
+      "pwm_max": 2000,
+      "position_m": {
+        "x": -0.45,
+        "y": 0.12,
+        "z": 0.0
+      },
+      "force_dir_body": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "direct_moment_per_cmd_body": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "rate_limit_units_per_s": 360.0,
+      "deadzone": 0.1,
+      "efficiency": 1.0,
+      "fin_model": {
+        "area_m2": 0.0035,
+        "cl_alpha_per_rad": 3.8,
+        "deflection_rad_per_cmd": 0.01745329252,
+        "min_speed_mps": 0.2
+      },
+      "thruster_model": null
+    },
+    {
+      "id": "f7b4e2ca",
+      "name": "pitch_left",
+      "type": "fin",
+      "driver_type": "servo",
+      "enabled": true,
+      "inverted": false,
+      "channel": 7,
+      "cmd_min": -30.0,
+      "cmd_max": 30.0,
+      "cmd_neutral": 0.0,
+      "pwm_min": 1000,
+      "pwm_max": 2000,
+      "position_m": {
+        "x": -0.45,
+        "y": -0.1,
+        "z": 0.0
+      },
+      "force_dir_body": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "direct_moment_per_cmd_body": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "rate_limit_units_per_s": 360.0,
+      "deadzone": 0.1,
+      "efficiency": 1.0,
+      "fin_model": {
+        "area_m2": 0.0035,
+        "cl_alpha_per_rad": 3.8,
+        "deflection_rad_per_cmd": 0.01745329252,
+        "min_speed_mps": 0.2
+      },
+      "thruster_model": null
+    },
+    {
+      "id": "6db73973",
+      "name": "pitch_right",
+      "type": "fin",
+      "driver_type": "servo",
+      "enabled": true,
+      "inverted": false,
+      "channel": 4,
+      "cmd_min": -30.0,
+      "cmd_max": 30.0,
+      "cmd_neutral": 0.0,
+      "pwm_min": 1000,
+      "pwm_max": 2000,
+      "position_m": {
+        "x": -0.45,
+        "y": 0.1,
+        "z": 0.0
+      },
+      "force_dir_body": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "direct_moment_per_cmd_body": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "rate_limit_units_per_s": 360.0,
+      "deadzone": 0.1,
+      "efficiency": 1.0,
+      "fin_model": {
+        "area_m2": 0.0035,
+        "cl_alpha_per_rad": 3.8,
+        "deflection_rad_per_cmd": 0.01745329252,
+        "min_speed_mps": 0.2
+      },
+      "thruster_model": null
+    },
+    {
+      "id": "a4d9d2c6",
+      "name": "roll_left",
+      "type": "fin",
+      "driver_type": "servo",
+      "enabled": true,
+      "inverted": false,
+      "channel": 5,
+      "cmd_min": -30.0,
+      "cmd_max": 30.0,
+      "cmd_neutral": 0.0,
+      "pwm_min": 1000,
+      "pwm_max": 2000,
+      "position_m": {
+        "x": 0.0,
+        "y": -0.18,
+        "z": 0.0
+      },
+      "force_dir_body": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "direct_moment_per_cmd_body": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "rate_limit_units_per_s": 360.0,
+      "deadzone": 0.1,
+      "efficiency": 1.0,
+      "fin_model": {
+        "area_m2": 0.0035,
+        "cl_alpha_per_rad": 3.8,
+        "deflection_rad_per_cmd": 0.01745329252,
+        "min_speed_mps": 0.2
+      },
+      "thruster_model": null
+    },
+    {
+      "id": "65d0043d",
+      "name": "roll_right",
+      "type": "fin",
+      "driver_type": "servo",
+      "enabled": true,
+      "inverted": false,
+      "channel": 8,
+      "cmd_min": -30.0,
+      "cmd_max": 30.0,
+      "cmd_neutral": 0.0,
+      "pwm_min": 1000,
+      "pwm_max": 2000,
+      "position_m": {
+        "x": 0.0,
+        "y": 0.18,
+        "z": 0.0
+      },
+      "force_dir_body": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "direct_moment_per_cmd_body": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "rate_limit_units_per_s": 360.0,
+      "deadzone": 0.1,
+      "efficiency": 1.0,
+      "fin_model": {
+        "area_m2": 0.0035,
+        "cl_alpha_per_rad": 3.8,
+        "deflection_rad_per_cmd": 0.01745329252,
+        "min_speed_mps": 0.2
+      },
+      "thruster_model": null
+    },
+    {
+      "id": "6195b157",
+      "name": "main_thruster",
+      "type": "thruster",
+      "driver_type": "motor",
+      "enabled": true,
+      "inverted": false,
+      "channel": 0,
+      "cmd_min": 0.0,
+      "cmd_max": 100.0,
+      "cmd_neutral": 0.0,
+      "pwm_min": 1000,
+      "pwm_max": 2000,
+      "position_m": {
+        "x": -0.48,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "force_dir_body": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "direct_moment_per_cmd_body": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "rate_limit_units_per_s": 250.0,
+      "deadzone": 0.0,
+      "efficiency": 1.0,
+      "fin_model": null,
+      "thruster_model": {
+        "thrust_gain_pos_N_per_cmd": 0.45,
+        "thrust_gain_neg_N_per_cmd": 0.0
+      }
+    }
+  ]
+}

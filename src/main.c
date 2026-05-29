@@ -1,10 +1,15 @@
 /*
 ===============================================================================
   Project 60 – Underwater Drone Defence
+  Simpele bediening voor 2 thrusters met pijltjestoetsen
+
+  Pijltje omhoog = beide thrusters harder
+  Pijltje omlaag = beide thrusters zachter
+  Spatie / s     = direct stop
+  q              = stoppen
 ===============================================================================
 */
 
-#pragma region Includes
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -16,267 +21,130 @@
 #include <math.h>
 #include <signal.h>
 #include <time.h>
+#include <stdlib.h>
+#include <termios.h>
+
 #include "common/mavlink.h"
-#include "math.h"
-
 #include "config.h"
-
 #include "common_Control/actuators.h"
 #include "common_Control/telemetry.h"
-#include "common_Control/transform.h"
-#include "common_Control/control.h"
-#include "common_Control/vehicle_config.h"
-#include "common_Control/actuator_model.h"
-#include "Debug/logger.h"
 
-#define LISTEN_PORT 14670
+#define THRUSTER_STEP_DUTY 5
+#define THRUSTER_MIN_DUTY  0
+#define THRUSTER_MAX_DUTY  100
 
-volatile drone_MAIN TOP_DRONE = {.ARMED = 0};
-pthread_t t1, t2;
-
-vehicle_config_t g_vehicle;
-
-#pragma region actuator list
-
-srvSTR yawFinLeft = {
-    .CHANNEL = 1,
-    .ANGLE = 0,
-    .DFLT_ANGLE = 0,
-    .MIN_ANGLE = -30,
-    .MAX_ANGLE = 30,
-    .MIN_PWM = 1000,
-    .MAX_PWM = 2000
-};
-
-srvSTR yawFinRight = {
-    .CHANNEL = 2,
-    .ANGLE = 0,
-    .DFLT_ANGLE = 0,
-    .MIN_ANGLE = -30,
-    .MAX_ANGLE = 30,
-    .MIN_PWM = 1000,
-    .MAX_PWM = 2000
-};
-
-srvSTR pitchFinLeft = {
-    .CHANNEL = 7,
-    .ANGLE = 0,
-    .DFLT_ANGLE = 0,
-    .MIN_ANGLE = -30,
-    .MAX_ANGLE = 30,
-    .MIN_PWM = 1000,
-    .MAX_PWM = 2000
-};
-
-srvSTR pitchFinRight = {
-    .CHANNEL = 4,
-    .ANGLE = 0,
-    .DFLT_ANGLE = 0,
-    .MIN_ANGLE = -30,
-    .MAX_ANGLE = 30,
-    .MIN_PWM = 1000,
-    .MAX_PWM = 2000
-};
-
-srvSTR rollFinLeft = {
-    .CHANNEL = 5,
-    .ANGLE = 0,
-    .DFLT_ANGLE = 0,
-    .MIN_ANGLE = -30,
-    .MAX_ANGLE = 30,
-    .MIN_PWM = 1000,
-    .MAX_PWM = 2000
-};
-
-srvSTR rollFinRight = {
-    .CHANNEL = 8,
-    .ANGLE = 0,
-    .DFLT_ANGLE = 0,
-    .MIN_ANGLE = -30,
-    .MAX_ANGLE = 30,
-    .MIN_PWM = 1000,
-    .MAX_PWM = 2000
-};
+static struct termios oude_terminal;
+static int terminal_aangepast = 0;
+static int huidige_duty = 0;
 
 motSTR mainThruster = {
     .MAX_DUTY = 100,
     .DUTY = 0,
-    .CHANNEL = 0
+    .CHANNEL = 8
 };
-#pragma endregion
 
-void EXIT_TASK(int sig)
+motSTR mainThruster_2 = {
+    .MAX_DUTY = 100,
+    .DUTY = 0,
+    .CHANNEL = 7
+};
+
+static int begrens(int waarde, int minimum, int maximum)
 {
-    printf("\nEXIT\n");
-    vehicle_set_all_neutral(&g_vehicle);
+    if (waarde < minimum) {
+        return minimum;
+    }
+    if (waarde > maximum) {
+        return maximum;
+    }
+    return waarde;
+}
+
+static void zet_thrusters(int nieuwe_duty)
+{
+    huidige_duty = begrens(nieuwe_duty, THRUSTER_MIN_DUTY, THRUSTER_MAX_DUTY);
+
+    set_MotorDuty(&mainThruster, huidige_duty);
+    set_MotorDuty(&mainThruster_2, huidige_duty);
+
+    printf("\rThrusters: %3d%%   ", huidige_duty);
+    fflush(stdout);
+}
+
+static void herstel_terminal(void)
+{
+    if (terminal_aangepast) {
+        tcsetattr(STDIN_FILENO, TCSANOW, &oude_terminal);
+        terminal_aangepast = 0;
+    }
+}
+
+static void setup_terminal(void)
+{
+    struct termios nieuwe_terminal;
+
+    tcgetattr(STDIN_FILENO, &oude_terminal);
+    nieuwe_terminal = oude_terminal;
+
+    /* Geen Enter nodig en toetsen worden niet op het scherm geprint. */
+    nieuwe_terminal.c_lflag &= ~(ICANON | ECHO);
+
+    tcsetattr(STDIN_FILENO, TCSANOW, &nieuwe_terminal);
+    terminal_aangepast = 1;
+
+    atexit(herstel_terminal);
+}
+
+static void stop_programma(int sig)
+{
+    (void)sig;
+
+    zet_thrusters(0);
     disarmDrone();
-    if (ENABLELOGGER) { logger_close(); }
-    pthread_cancel(t1);
-    pthread_cancel(t2);
+    herstel_terminal();
 
-    sleep(1);
-    exit(sig);
+    printf("\nGestopt. Thrusters uit en drone disarmed.\n");
+    exit(0);
 }
 
-double get_time_s(void)
-{
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-
-    return ts.tv_sec + ts.tv_nsec * 1e-9;
-}
-
-#pragma region Telemetry Thread
-void *thread_1_Telemetry(void *arg)
-{
-    (void)arg;
-
-    while (1)
-    {
-        telemetry_poll();
-
-        TOP_DRONE.gyro_RAD = get_GYRO_V3();
-        TOP_DRONE.comps_RAD = get_COMPS_V3();
-        TOP_DRONE.compsYAW = get_YAW_HEADING();
-        TOP_DRONE.compsPITCH = get_PITCH_HEADING();
-        TOP_DRONE.accel_V3 = get_ACCEL_V3();
-        TOP_DRONE.gps = get_GPS();
-        TOP_DRONE.ACTUALbodyAttitude4D = get_BODY_ATTI4D();
-
-        {
-            double t = get_time_s();
-
-            logger_begin_row();
-            logger_set_double("Tijd", t);
-            logger_set_float("Yaw_deg", TOP_DRONE.compsYAW);
-            logger_set_float("Pitch_deg", TOP_DRONE.compsPITCH);
-
-            logger_set_float("Gyro_X", TOP_DRONE.gyro_RAD.x);
-            logger_set_float("Gyro_Y", TOP_DRONE.gyro_RAD.y);
-            logger_set_float("Gyro_Z", TOP_DRONE.gyro_RAD.z);
-
-            logger_set_float("Compass_X", TOP_DRONE.comps_RAD.x);
-            logger_set_float("Compass_Y", TOP_DRONE.comps_RAD.y);
-            logger_set_float("Compass_Z", TOP_DRONE.comps_RAD.z);
-
-            logger_set_float("Accel_X", TOP_DRONE.accel_V3.x);
-            logger_set_float("Accel_Y", TOP_DRONE.accel_V3.y);
-            logger_set_float("Accel_Z", TOP_DRONE.accel_V3.z);
-            logger_end_row();
-        }
-
-        if (sPrintTelemetry)
-        {
-            printf("\rYaw:%6.2f deg  Pitch:%6.2f deg  Roll:%6.2f deg  AttAge:%5.3f s",
-                   TOP_DRONE.compsYAW,
-                   TOP_DRONE.compsPITCH,
-                   TOP_DRONE.ACTUALbodyAttitude4D.r,
-                   telemetry_get_attitude_age_s());
-            fflush(stdout);
-        }
-
-        usleep(TELEMETRY_LOOP_PERIOD_US);
-    }
-
-    return NULL;
-}
-#pragma endregion
-
-#pragma region Control Thread
-void *thread_2_Control(void *arg)
-{
-    control_STATES State = ATTACK;
-    double last_time = get_time_s();
-
-    (void)arg;
-
-    TOP_DRONE.DESIREDbodyAttitude4D = bodyAttitude4D_create(
-        0.0f,   /* desired yaw deg   */
-        0.0f,   /* desired pitch deg */
-        20.0f,  /* desired surge force request in N */
-        0.0f    /* desired roll deg  */
-    );
-
-    while (1)
-    {
-        double now = get_time_s();
-        float dt_s = (float)(now - last_time);
-        last_time = now;
-
-        if ((dt_s <= 0.0f) || (dt_s > 0.5f)) {
-            dt_s = (float)CONTROL_LOOP_PERIOD_US * 1e-6f;
-        }
-
-        switch (State)
-        {
-            case IDLE:
-                vehicle_set_all_neutral(&g_vehicle);
-                break;
-
-            case ATTACK:
-                if (telemetry_is_attitude_recent(TELEMETRY_ATTITUDE_TIMEOUT_S)) {
-                    control_update((drone_MAIN *)&TOP_DRONE, &g_vehicle, dt_s);
-                } else {
-                    vehicle_set_all_neutral(&g_vehicle);
-                }
-                break;
-
-            case RESURFACE:
-                vehicle_set_all_neutral(&g_vehicle);
-                break;
-
-            default:
-                State = IDLE;
-                break;
-        }
-
-        usleep(CONTROL_LOOP_PERIOD_US);
-    }
-
-    return NULL;
-}
-#pragma endregion
-
-#pragma region Main
 int main(void)
 {
-    if (ENABLELOGGER) { logger_init(); }
+    int toets;
 
-    vehicle_config_init_default(&g_vehicle,
-                                &yawFinLeft,
-                                &yawFinRight,
-                                &pitchFinLeft,
-                                &pitchFinRight,
-                                &rollFinLeft,
-                                &rollFinRight,
-                                &mainThruster);
+    signal(SIGINT, stop_programma);
+    setup_terminal();
 
-    signal(SIGINT, EXIT_TASK);
     disarmDrone();
+    zet_thrusters(0);
 
-    if (AUTOARM)
-    {
-        printf("WARNING: DRONE WILL AUTO ARM IN 5s...\n");
+    if (AUTOARM) {
+        printf("\nWARNING: DRONE WILL AUTO ARM IN 5s...\n");
         sleep(5);
         armDrone();
-        TOP_DRONE.ARMED = true;
         printf("DRONE ARMED\n");
-        logger_begin_row();
-        logger_set_double("Tijd", get_time_s());
-        logger_set_string("ARMSTATUS", "ARMED");
-        logger_end_row();
     }
 
-    while (!TOP_DRONE.ARMED)
-    {
-        usleep(100);
+    printf("Gebruik pijltje omhoog/omlaag. Spatie of s = stop. q = afsluiten.\n");
+
+    while (1) {
+        toets = getchar();
+
+        /* Pijltjestoetsen sturen 3 tekens: ESC [ A/B */
+        if (toets == 27) {
+            int toets2 = getchar();
+            int toets3 = getchar();
+
+            if (toets2 == '[' && toets3 == 'A') {
+                zet_thrusters(huidige_duty + THRUSTER_STEP_DUTY);
+            } else if (toets2 == '[' && toets3 == 'B') {
+                zet_thrusters(huidige_duty - THRUSTER_STEP_DUTY);
+            }
+        } else if (toets == ' ' || toets == 's' || toets == 'S') {
+            zet_thrusters(0);
+        } else if (toets == 'q' || toets == 'Q') {
+            stop_programma(0);
+        }
     }
 
-    pthread_create(&t1, NULL, thread_1_Telemetry, NULL);
-    pthread_create(&t2, NULL, thread_2_Control, NULL);
-
-    pthread_join(t1, NULL);
-    pthread_join(t2, NULL);
     return 0;
 }
-#pragma endregion
