@@ -27,6 +27,11 @@ CMakeFiles/torpedo_main.dir/src/common_Control/control.c.o: \
  /usr/aarch64-linux-gnu/include/bits/stdint-least.h \
  /mnt/c/Users/tommy/Desktop/Expo60/EXPO-60-UnderwaterDrone/src/common_Control/actuators.h \
  /mnt/c/Users/tommy/Desktop/Expo60/EXPO-60-UnderwaterDrone/src/common_Control/control_types.h \
+ /usr/aarch64-linux-gnu/include/ctype.h \
+ /usr/aarch64-linux-gnu/include/bits/endian.h \
+ /usr/aarch64-linux-gnu/include/bits/endianness.h \
+ /usr/aarch64-linux-gnu/include/bits/types/locale_t.h \
+ /usr/aarch64-linux-gnu/include/bits/types/__locale_t.h \
  /usr/aarch64-linux-gnu/include/math.h \
  /usr/aarch64-linux-gnu/include/bits/math-vector.h \
  /usr/aarch64-linux-gnu/include/bits/libm-simd-decl-stubs.h \
@@ -39,5 +44,49 @@ CMakeFiles/torpedo_main.dir/src/common_Control/control.c.o: \
  /usr/aarch64-linux-gnu/include/bits/mathcalls-helper-functions.h \
  /usr/aarch64-linux-gnu/include/bits/mathcalls.h \
  /usr/lib/gcc-cross/aarch64-linux-gnu/15/include/stddef.h \
+ /usr/aarch64-linux-gnu/include/stdio.h \
+ /usr/lib/gcc-cross/aarch64-linux-gnu/15/include/stdarg.h \
+ /usr/aarch64-linux-gnu/include/bits/types/__fpos_t.h \
+ /usr/aarch64-linux-gnu/include/bits/types/__mbstate_t.h \
+ /usr/aarch64-linux-gnu/include/bits/types/__fpos64_t.h \
+ /usr/aarch64-linux-gnu/include/bits/types/__FILE.h \
+ /usr/aarch64-linux-gnu/include/bits/types/FILE.h \
+ /usr/aarch64-linux-gnu/include/bits/types/struct_FILE.h \
+ /usr/aarch64-linux-gnu/include/bits/types/cookie_io_functions_t.h \
+ /usr/aarch64-linux-gnu/include/bits/stdio_lim.h \
+ /usr/aarch64-linux-gnu/include/stdlib.h \
+ /usr/aarch64-linux-gnu/include/bits/waitflags.h \
+ /usr/aarch64-linux-gnu/include/bits/waitstatus.h \
+ /usr/aarch64-linux-gnu/include/sys/types.h \
+ /usr/aarch64-linux-gnu/include/bits/types/clock_t.h \
+ /usr/aarch64-linux-gnu/include/bits/types/clockid_t.h \
+ /usr/aarch64-linux-gnu/include/bits/types/time_t.h \
+ /usr/aarch64-linux-gnu/include/bits/types/timer_t.h \
+ /usr/aarch64-linux-gnu/include/endian.h \
+ /usr/aarch64-linux-gnu/include/bits/byteswap.h \
+ /usr/aarch64-linux-gnu/include/bits/uintn-identity.h \
+ /usr/aarch64-linux-gnu/include/sys/select.h \
+ /usr/aarch64-linux-gnu/include/bits/select.h \
+ /usr/aarch64-linux-gnu/include/bits/types/sigset_t.h \
+ /usr/aarch64-linux-gnu/include/bits/types/__sigset_t.h \
+ /usr/aarch64-linux-gnu/include/bits/types/struct_timeval.h \
+ /usr/aarch64-linux-gnu/include/bits/types/struct_timespec.h \
+ /usr/aarch64-linux-gnu/include/bits/pthreadtypes.h \
+ /usr/aarch64-linux-gnu/include/bits/thread-shared-types.h \
+ /usr/aarch64-linux-gnu/include/bits/pthreadtypes-arch.h \
+ /usr/aarch64-linux-gnu/include/bits/atomic_wide_counter.h \
+ /usr/aarch64-linux-gnu/include/bits/struct_mutex.h \
+ /usr/aarch64-linux-gnu/include/bits/struct_rwlock.h \
+ /usr/aarch64-linux-gnu/include/alloca.h \
+ /usr/aarch64-linux-gnu/include/bits/stdlib-float.h \
+ /usr/aarch64-linux-gnu/include/string.h \
+ /usr/aarch64-linux-gnu/include/strings.h \
+ /usr/aarch64-linux-gnu/include/sys/stat.h \
+ /usr/aarch64-linux-gnu/include/bits/stat.h \
+ /usr/aarch64-linux-gnu/include/bits/struct_stat.h \
+ /usr/aarch64-linux-gnu/include/time.h \
+ /usr/aarch64-linux-gnu/include/bits/time.h \
+ /usr/aarch64-linux-gnu/include/bits/types/struct_tm.h \
+ /usr/aarch64-linux-gnu/include/bits/types/struct_itimerspec.h \
  /mnt/c/Users/tommy/Desktop/Expo60/EXPO-60-UnderwaterDrone/src/common_Control/allocator.h \
  /mnt/c/Users/tommy/Desktop/Expo60/EXPO-60-UnderwaterDrone/src/config.h

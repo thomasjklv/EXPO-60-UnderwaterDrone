@@ -2,10 +2,10 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Build upload and ask to run torpedo_main on BlueOS",
+      "label": "Sync build and optional run on BlueOS",
       "type": "shell",
-        "command": "wsl -d Ubuntu bash /mnt/c/Users/tommy/Desktop/Expo60/EXPO-60-UnderwaterDrone/scripts/build_upload_run.sh ${input:runAfterUpload}",     
-        "problemMatcher": [
+      "command": "wsl -d Ubuntu bash /mnt/c/Users/tommy/Desktop/Expo60/EXPO-60-UnderwaterDrone/scripts/build_upload_run.sh ${input:runAfterUpload} ${input:dockerAfterUpload}",
+      "problemMatcher": [
         "$gcc"
       ],
       "group": {
@@ -18,7 +18,17 @@
     {
       "id": "runAfterUpload",
       "type": "pickString",
-      "description": "Upload completed successfully. Do you want to start torpedo_main on the Raspberry Pi now?",
+      "description": "After syncing to the Raspberry Pi, do you want to stop any old torpedo_main, rebuild there, and run the newest one now?",
+      "options": [
+        "yes",
+        "no"
+      ],
+      "default": "no"
+    },
+    {
+      "id": "dockerAfterUpload",
+      "type": "pickString",
+      "description": "Do you want to rebuild and restart the BlueOs Docker container too?",
       "options": [
         "yes",
         "no"

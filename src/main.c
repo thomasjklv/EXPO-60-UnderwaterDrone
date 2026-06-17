@@ -24,7 +24,7 @@ pthread_t t1, t2;
 
 vehicle_config_t g_vehicle;
 
-static void EXIT_TASK(int sig)
+static void EXIT_TASK(int sig)//TODO Disarm werkt niet meer 
 {
     printf("\nEXIT\n");
 

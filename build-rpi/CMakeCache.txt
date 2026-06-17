@@ -186,8 +186,8 @@ CMAKE_STRIP:FILEPATH=/usr/bin/aarch64-linux-gnu-strip
 //Path to a program.
 CMAKE_TAPI:FILEPATH=CMAKE_TAPI-NOTFOUND
 
-//The CMake toolchain file
-CMAKE_TOOLCHAIN_FILE:FILEPATH=/mnt/c/Users/tommy/Desktop/Expo60/EXPO-60-UnderwaterDrone/toolchain-rpi64.cmake
+//No help, variable specified on the command line.
+CMAKE_TOOLCHAIN_FILE:UNINITIALIZED=/mnt/c/Users/tommy/Desktop/Expo60/EXPO-60-UnderwaterDrone/toolchain-rpi64.cmake
 
 //If this value is on, makefiles will be generated without the
 // .SILENT directive, and all commands will be echoed to the console

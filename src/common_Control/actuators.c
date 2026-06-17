@@ -1,6 +1,14 @@
 #include "common_Control/actuators.h"
 #include "config.h"
 
+#ifndef ACTUATOR_HOST
+#define ACTUATOR_HOST "127.0.0.1"
+#endif
+
+#ifndef ACTUATOR_PORT
+#define ACTUATOR_PORT 14550
+#endif
+
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>

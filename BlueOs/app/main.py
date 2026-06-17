@@ -1,6 +1,10 @@
 import json
 import os
 import re
+import subprocess
+import threading
+import time
+from collections import deque
 from copy import deepcopy
 
 from fastapi import FastAPI, HTTPException
@@ -18,12 +22,21 @@ CONFIG_PATH = os.path.join(DATA_DIR, "actuator_config.json")
 GENERATED_HEADER_PATH = os.path.join(GENERATED_DIR, "actuator_specs.h")
 GENERATED_SOURCE_PATH = os.path.join(GENERATED_DIR, "actuator_specs.c")
 GENERATED_VEHICLE_SETTINGS_PATH = os.path.join(GENERATED_DIR, "generated_vehicle_settings.h")
+CONTROL_RUNTIME_CFG_PATH = os.path.join(DATA_DIR, "control_runtime.cfg")
+
+TORPEDO_BIN_DEFAULT = "/workspace/build/torpedo_main"
+TORPEDO_CWD_DEFAULT = "/workspace"
 
 ALLOWED_DOWNLOADS = {
     "actuator_specs.h": GENERATED_HEADER_PATH,
     "actuator_specs.c": GENERATED_SOURCE_PATH,
     "generated_vehicle_settings.h": GENERATED_VEHICLE_SETTINGS_PATH,
+    "control_runtime.cfg": CONTROL_RUNTIME_CFG_PATH,
 }
+
+runtime_process = None
+runtime_process_lock = threading.Lock()
+runtime_logs = deque(maxlen=2000)
 
 
 class ConfigPayload(BaseModel):
@@ -44,29 +57,44 @@ def default_config():
             "axis_weight_pitch": 1.5,
             "axis_weight_yaw": 2.0,
         },
+        "pid": {
+            "roll": {"kp": 1.0, "ki": 0.0, "kd": 0.0},
+            "pitch": {"kp": 1.0, "ki": 0.0, "kd": 0.0},
+            "yaw": {"kp": 1.0, "ki": 0.0, "kd": 0.0},
+        },
+        "runtime": {
+            "desired_roll_deg": 0.0,
+            "desired_pitch_deg": 0.0,
+            "desired_yaw_deg": 0.0,
+            "desired_surge_force_N": 20.0,
+        },
         "actuators": [
             {
                 "name": "roll_left_front",
                 "kind": "fin",
                 "enabled": True,
                 "inverted": False,
-                "channel": 5,
+                "channel": 8,
                 "cmd_min": -30.0,
                 "cmd_neutral": 0.0,
                 "cmd_max": 30.0,
-                "position": {"x": 0.20, "y": -0.10, "z": 0.00},
+                "pwm_min": 1000,
+                "pwm_max": 2000,
+                "position": {"x": 0.00, "y": -0.20, "z": 0.00},
                 "force_dir": {"x": 0.0, "y": 0.0, "z": 1.0},
-                "area_m2": 0.0035,
+                "area_m2": 0.0060,
             },
             {
                 "name": "main_thruster",
                 "kind": "thruster",
                 "enabled": True,
                 "inverted": False,
-                "channel": 0,
+                "channel": 1,
                 "cmd_min": 0.0,
                 "cmd_neutral": 0.0,
                 "cmd_max": 100.0,
+                "pwm_min": 1000,
+                "pwm_max": 2000,
                 "position": {"x": -0.48, "y": 0.0, "z": 0.0},
                 "force_dir": {"x": 1.0, "y": 0.0, "z": 0.0},
                 "thrust_gain_pos_N_per_cmd": 0.45,
@@ -410,6 +438,39 @@ def generate_vehicle_settings_text(config):
 """
 
 
+def generate_runtime_cfg_text(config):
+    pid = config.get("pid", {})
+    runtime = config.get("runtime", {})
+
+    roll = deep_merge({"kp": 1.0, "ki": 0.0, "kd": 0.0}, pid.get("roll", {}))
+    pitch = deep_merge({"kp": 1.0, "ki": 0.0, "kd": 0.0}, pid.get("pitch", {}))
+    yaw = deep_merge({"kp": 1.0, "ki": 0.0, "kd": 0.0}, pid.get("yaw", {}))
+
+    desired_roll = get_number(runtime, "desired_roll_deg", 0.0)
+    desired_pitch = get_number(runtime, "desired_pitch_deg", 0.0)
+    desired_yaw = get_number(runtime, "desired_yaw_deg", 0.0)
+    desired_surge = get_number(runtime, "desired_surge_force_N", 20.0)
+
+    lines = [
+        "# EXPO60 live control runtime config",
+        f"roll_kp={roll['kp']}",
+        f"roll_ki={roll['ki']}",
+        f"roll_kd={roll['kd']}",
+        f"pitch_kp={pitch['kp']}",
+        f"pitch_ki={pitch['ki']}",
+        f"pitch_kd={pitch['kd']}",
+        f"yaw_kp={yaw['kp']}",
+        f"yaw_ki={yaw['ki']}",
+        f"yaw_kd={yaw['kd']}",
+        f"desired_roll_deg={desired_roll}",
+        f"desired_pitch_deg={desired_pitch}",
+        f"desired_yaw_deg={desired_yaw}",
+        f"desired_surge_force_N={desired_surge}",
+        "",
+    ]
+    return "\n".join(lines)
+
+
 def generate_files(config):
     ensure_dirs()
 
@@ -421,6 +482,107 @@ def generate_files(config):
 
     with open(GENERATED_VEHICLE_SETTINGS_PATH, "w", encoding="utf-8") as f:
         f.write(generate_vehicle_settings_text(config))
+
+    with open(CONTROL_RUNTIME_CFG_PATH, "w", encoding="utf-8") as f:
+        f.write(generate_runtime_cfg_text(config))
+
+
+def append_log(line):
+    runtime_logs.append(line.rstrip("\n"))
+
+
+def runtime_bin_path():
+    return os.environ.get("TORPEDO_BIN", TORPEDO_BIN_DEFAULT)
+
+
+def runtime_cwd():
+    return os.environ.get("TORPEDO_CWD", TORPEDO_CWD_DEFAULT)
+
+
+def process_alive(proc):
+    return (proc is not None) and (proc.poll() is None)
+
+
+def runtime_status():
+    with runtime_process_lock:
+        proc = runtime_process
+        return {
+            "running": process_alive(proc),
+            "pid": proc.pid if process_alive(proc) else None,
+            "binary": runtime_bin_path(),
+            "cwd": runtime_cwd(),
+        }
+
+
+def _reader_thread(proc):
+    try:
+        if proc.stdout is not None:
+            for line in proc.stdout:
+                append_log(line)
+    finally:
+        code = proc.poll()
+        append_log(f"[runtime] process exited with code {code}")
+
+
+def start_runtime_process():
+    global runtime_process
+
+    with runtime_process_lock:
+        if process_alive(runtime_process):
+            return runtime_status()
+
+        bin_path = runtime_bin_path()
+        cwd = runtime_cwd()
+
+        if not os.path.exists(bin_path):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Binary not found: {bin_path}. Build torpedo_main first and mount /workspace."
+            )
+
+        runtime_logs.clear()
+        append_log(f"[runtime] starting {bin_path}")
+
+        env = os.environ.copy()
+        env["CONTROL_RUNTIME_CONFIG_PATH"] = CONTROL_RUNTIME_CFG_PATH
+
+        runtime_process = subprocess.Popen(
+            [bin_path],
+            cwd=cwd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            stdin=subprocess.DEVNULL,
+            text=True,
+            bufsize=1,
+            env=env,
+        )
+
+        thread = threading.Thread(target=_reader_thread, args=(runtime_process,), daemon=True)
+        thread.start()
+
+        return runtime_status()
+
+
+def stop_runtime_process():
+    global runtime_process
+
+    with runtime_process_lock:
+        if not process_alive(runtime_process):
+            runtime_process = None
+            return {"running": False}
+
+        append_log("[runtime] stopping process")
+        runtime_process.terminate()
+
+        try:
+            runtime_process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            append_log("[runtime] terminate timeout, killing")
+            runtime_process.kill()
+            runtime_process.wait(timeout=5)
+
+        runtime_process = None
+        return {"running": False}
 
 
 def page_html():
@@ -441,11 +603,12 @@ def page_html():
         h1, h2, h3 {
             color: #38bdf8;
         }
-        .toolbar, .vehicle, .downloads {
+        .panel {
             background: #1e293b;
             border-radius: 12px;
             padding: 16px;
             margin-bottom: 16px;
+            border: 1px solid #334155;
         }
         .toolbar button, .card button, .downloads a {
             margin-right: 8px;
@@ -460,13 +623,13 @@ def page_html():
             color: #082f49;
             font-weight: bold;
         }
-        .toolbar button.secondary, .card button.secondary {
-            background: #475569;
-            color: white;
+        .secondary {
+            background: #475569 !important;
+            color: white !important;
         }
-        .toolbar button.danger, .card button.danger {
-            background: #ef4444;
-            color: white;
+        .danger {
+            background: #ef4444 !important;
+            color: white !important;
         }
         .grid {
             display: grid;
@@ -503,12 +666,22 @@ def page_html():
             color: #94a3b8;
             font-size: 13px;
         }
+        pre {
+            background: #020617;
+            color: #e2e8f0;
+            padding: 16px;
+            border-radius: 12px;
+            min-height: 240px;
+            overflow: auto;
+            white-space: pre-wrap;
+            border: 1px solid #334155;
+        }
     </style>
 </head>
 <body>
     <h1>Smart Control Allocation</h1>
 
-    <div class="toolbar">
+    <div class="panel toolbar">
         <button onclick="loadConfig()">Reload</button>
         <button onclick="saveConfig()">Save</button>
         <button onclick="generateFiles()">Generate C Files</button>
@@ -517,7 +690,16 @@ def page_html():
         <div id="status" class="status"></div>
     </div>
 
-    <div class="vehicle">
+    <div class="panel">
+        <h2>Runtime</h2>
+        <button onclick="startRuntime()">Start Code</button>
+        <button class="danger" onclick="stopRuntime()">Stop Code</button>
+        <div id="runtime-status" class="status"></div>
+        <p class="small">Requires the extension container to be started with <code>--network host</code> and <code>-v /home/pi/torpedo_EX60_Main:/workspace</code>.</p>
+        <pre id="runtime-console"></pre>
+    </div>
+
+    <div class="panel">
         <h2>Vehicle</h2>
         <div class="grid">
             <div>
@@ -541,14 +723,41 @@ def page_html():
                 <input id="axis_weight_yaw" type="number" step="0.1">
             </div>
         </div>
-        <p class="small">For seawater use 1025.</p>
     </div>
 
-    <div class="downloads">
+    <div class="panel">
+        <h2>Live PID gains</h2>
+        <div class="grid">
+            <div><label>Roll Kp</label><input id="roll_kp" type="number" step="0.01"></div>
+            <div><label>Roll Ki</label><input id="roll_ki" type="number" step="0.01"></div>
+            <div><label>Roll Kd</label><input id="roll_kd" type="number" step="0.01"></div>
+
+            <div><label>Pitch Kp</label><input id="pitch_kp" type="number" step="0.01"></div>
+            <div><label>Pitch Ki</label><input id="pitch_ki" type="number" step="0.01"></div>
+            <div><label>Pitch Kd</label><input id="pitch_kd" type="number" step="0.01"></div>
+
+            <div><label>Yaw Kp</label><input id="yaw_kp" type="number" step="0.01"></div>
+            <div><label>Yaw Ki</label><input id="yaw_ki" type="number" step="0.01"></div>
+            <div><label>Yaw Kd</label><input id="yaw_kd" type="number" step="0.01"></div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <h2>Live desired setpoints</h2>
+        <div class="grid">
+            <div><label>Desired roll (deg)</label><input id="desired_roll_deg" type="number" step="0.1"></div>
+            <div><label>Desired pitch (deg)</label><input id="desired_pitch_deg" type="number" step="0.1"></div>
+            <div><label>Desired yaw (deg)</label><input id="desired_yaw_deg" type="number" step="0.1"></div>
+            <div><label>Desired surge force (N)</label><input id="desired_surge_force_N" type="number" step="0.1"></div>
+        </div>
+    </div>
+
+    <div class="panel downloads">
         <h2>Generated files</h2>
         <a href="generated/actuator_specs.h" target="_blank">Download actuator_specs.h</a>
         <a href="generated/actuator_specs.c" target="_blank">Download actuator_specs.c</a>
         <a href="generated/generated_vehicle_settings.h" target="_blank">Download generated_vehicle_settings.h</a>
+        <a href="generated/control_runtime.cfg" target="_blank">Download control_runtime.cfg</a>
     </div>
 
     <div id="actuator-list"></div>
@@ -585,6 +794,8 @@ def page_html():
                 cmd_min: -30,
                 cmd_neutral: 0,
                 cmd_max: 30,
+                pwm_min: 1000,
+                pwm_max: 2000,
                 position: { x: 0, y: 0, z: 0 },
                 force_dir: { x: 0, y: 0, z: 1 },
                 area_m2: 0.0035
@@ -597,10 +808,12 @@ def page_html():
                 kind: "thruster",
                 enabled: true,
                 inverted: false,
-                channel: 0,
+                channel: 1,
                 cmd_min: 0,
                 cmd_neutral: 0,
                 cmd_max: 100,
+                pwm_min: 1000,
+                pwm_max: 2000,
                 position: { x: 0, y: 0, z: 0 },
                 force_dir: { x: 1, y: 0, z: 0 },
                 thrust_gain_pos_N_per_cmd: 0.45,
@@ -619,6 +832,23 @@ def page_html():
                 document.getElementById("axis_weight_roll").value = state.vehicle.axis_weight_roll;
                 document.getElementById("axis_weight_pitch").value = state.vehicle.axis_weight_pitch;
                 document.getElementById("axis_weight_yaw").value = state.vehicle.axis_weight_yaw;
+
+                document.getElementById("roll_kp").value = state.pid.roll.kp;
+                document.getElementById("roll_ki").value = state.pid.roll.ki;
+                document.getElementById("roll_kd").value = state.pid.roll.kd;
+
+                document.getElementById("pitch_kp").value = state.pid.pitch.kp;
+                document.getElementById("pitch_ki").value = state.pid.pitch.ki;
+                document.getElementById("pitch_kd").value = state.pid.pitch.kd;
+
+                document.getElementById("yaw_kp").value = state.pid.yaw.kp;
+                document.getElementById("yaw_ki").value = state.pid.yaw.ki;
+                document.getElementById("yaw_kd").value = state.pid.yaw.kd;
+
+                document.getElementById("desired_roll_deg").value = state.runtime.desired_roll_deg;
+                document.getElementById("desired_pitch_deg").value = state.runtime.desired_pitch_deg;
+                document.getElementById("desired_yaw_deg").value = state.runtime.desired_yaw_deg;
+                document.getElementById("desired_surge_force_N").value = state.runtime.desired_surge_force_N;
 
                 renderActuators();
                 status("Config loaded");
@@ -704,6 +934,17 @@ def page_html():
                         <div>
                             <label>Cmd max</label>
                             <input type="number" step="0.1" value="${a.cmd_max}" onchange="updateActuator(${i}, 'cmd_max', this.value)">
+                        </div>
+                    </div>
+
+                    <div class="grid">
+                        <div>
+                            <label>PWM min</label>
+                            <input type="number" step="1" value="${a.pwm_min ?? 1000}" onchange="updateActuator(${i}, 'pwm_min', this.value)">
+                        </div>
+                        <div>
+                            <label>PWM max</label>
+                            <input type="number" step="1" value="${a.pwm_max ?? 2000}" onchange="updateActuator(${i}, 'pwm_max', this.value)">
                         </div>
                     </div>
 
@@ -793,7 +1034,30 @@ def page_html():
                     axis_weight_surge: num(document.getElementById("axis_weight_surge").value, 1.0),
                     axis_weight_roll: num(document.getElementById("axis_weight_roll").value, 1.5),
                     axis_weight_pitch: num(document.getElementById("axis_weight_pitch").value, 1.5),
-                    axis_weight_yaw: num(document.getElementById("axis_weight_yaw").value, 2.0),
+                    axis_weight_yaw: num(document.getElementById("axis_weight_yaw").value, 2.0)
+                },
+                pid: {
+                    roll: {
+                        kp: num(document.getElementById("roll_kp").value, 1.0),
+                        ki: num(document.getElementById("roll_ki").value, 0.0),
+                        kd: num(document.getElementById("roll_kd").value, 0.0)
+                    },
+                    pitch: {
+                        kp: num(document.getElementById("pitch_kp").value, 1.0),
+                        ki: num(document.getElementById("pitch_ki").value, 0.0),
+                        kd: num(document.getElementById("pitch_kd").value, 0.0)
+                    },
+                    yaw: {
+                        kp: num(document.getElementById("yaw_kp").value, 1.0),
+                        ki: num(document.getElementById("yaw_ki").value, 0.0),
+                        kd: num(document.getElementById("yaw_kd").value, 0.0)
+                    }
+                },
+                runtime: {
+                    desired_roll_deg: num(document.getElementById("desired_roll_deg").value, 0.0),
+                    desired_pitch_deg: num(document.getElementById("desired_pitch_deg").value, 0.0),
+                    desired_yaw_deg: num(document.getElementById("desired_yaw_deg").value, 0.0),
+                    desired_surge_force_N: num(document.getElementById("desired_surge_force_N").value, 20.0)
                 },
                 actuators: state.actuators
             };
@@ -830,13 +1094,71 @@ def page_html():
                     throw new Error(await response.text());
                 }
 
-                status("Generated actuator_specs.h/.c and vehicle settings");
+                state = collectConfig();
+                status("Generated actuator files and live runtime config");
             } catch (err) {
                 status(`Failed to generate files: ${err}`, true);
             }
         }
 
+        async function startRuntime() {
+            try {
+                const response = await fetch(`${apiBase()}/api/runtime/start`, {
+                    method: "POST"
+                });
+                if (!response.ok) {
+                    throw new Error(await response.text());
+                }
+                await refreshRuntime();
+                status("Runtime started");
+            } catch (err) {
+                status(`Failed to start runtime: ${err}`, true);
+            }
+        }
+
+        async function stopRuntime() {
+            try {
+                const response = await fetch(`${apiBase()}/api/runtime/stop`, {
+                    method: "POST"
+                });
+                if (!response.ok) {
+                    throw new Error(await response.text());
+                }
+                await refreshRuntime();
+                status("Runtime stopped");
+            } catch (err) {
+                status(`Failed to stop runtime: ${err}`, true);
+            }
+        }
+
+        async function refreshRuntime() {
+            try {
+                const statusRes = await fetch(`${apiBase()}/api/runtime/status`);
+                const logsRes = await fetch(`${apiBase()}/api/runtime/logs`);
+
+                const runtimeStatus = await statusRes.json();
+                const runtimeLogs = await logsRes.json();
+
+                document.getElementById("runtime-status").textContent =
+                    runtimeStatus.running
+                    ? `Running (pid ${runtimeStatus.pid})`
+                    : "Stopped";
+
+                document.getElementById("runtime-status").style.color =
+                    runtimeStatus.running ? "#4ade80" : "#f87171";
+
+                document.getElementById("runtime-console").textContent =
+                    runtimeLogs.lines.join("\\n");
+            } catch (err) {
+                document.getElementById("runtime-status").textContent =
+                    `Runtime status error: ${err}`;
+                document.getElementById("runtime-status").style.color = "#f87171";
+            }
+        }
+
         loadConfig();
+        refreshRuntime();
+        setInterval(refreshRuntime, 1000);
     </script>
 </body>
 </html>
@@ -850,7 +1172,7 @@ def register_service():
         "description": "Configure smart control allocation for the EXPO60 underwater drone.",
         "icon": "mdi-tune-variant",
         "company": "EXPO60",
-        "version": "0.0.2",
+        "version": "0.1.0",
         "webpage": "/",
         "api": "/",
         "new_page": False,
@@ -891,6 +1213,30 @@ def api_generate(payload: ConfigPayload):
     save_config(config)
     generate_files(config)
     return {"ok": True}
+
+
+@app.post("/api/runtime/start")
+@app.post(EXTENSION_PREFIX + "/api/runtime/start")
+def api_runtime_start():
+    return start_runtime_process()
+
+
+@app.post("/api/runtime/stop")
+@app.post(EXTENSION_PREFIX + "/api/runtime/stop")
+def api_runtime_stop():
+    return stop_runtime_process()
+
+
+@app.get("/api/runtime/status")
+@app.get(EXTENSION_PREFIX + "/api/runtime/status")
+def api_runtime_status():
+    return runtime_status()
+
+
+@app.get("/api/runtime/logs")
+@app.get(EXTENSION_PREFIX + "/api/runtime/logs")
+def api_runtime_logs():
+    return {"lines": list(runtime_logs)}
 
 
 @app.get("/generated/{filename}")

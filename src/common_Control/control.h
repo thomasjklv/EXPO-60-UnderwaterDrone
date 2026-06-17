@@ -11,7 +11,7 @@ typedef enum
     RESURFACE = 2
 } control_STATES;
 
-wrench4_t controller_compute_desired_wrench(const drone_MAIN *drone);
+wrench4_t controller_compute_desired_wrench(const drone_MAIN *drone, float dt_s);
 void control_update(drone_MAIN *drone,
                     vehicle_config_t *vehicle,
                     float dt_s);
