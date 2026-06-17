@@ -5,7 +5,13 @@ project(Torpedo_EX60 C)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
+# Generated BlueOS data
 set(GENERATED_DIR ${CMAKE_SOURCE_DIR}/BlueOs/data/generated)
+
+# MAVLink C library path
+# This expects:
+# lib/c_library_v2/common/mavlink.h
+set(MAVLINK_DIR ${CMAKE_SOURCE_DIR}/lib/c_library_v2)
 
 add_executable(torpedo_main
     src/main.c
@@ -21,7 +27,7 @@ add_executable(torpedo_main
 )
 
 target_include_directories(torpedo_main PRIVATE
-    ${CMAKE_SOURCE_DIR}/lib/c_library_v2
+    ${MAVLINK_DIR}
     ${CMAKE_SOURCE_DIR}/src
     ${GENERATED_DIR}
 )
@@ -32,8 +38,13 @@ target_compile_options(torpedo_main PRIVATE
 )
 
 find_package(Threads REQUIRED)
-target_link_libraries(torpedo_main PRIVATE Threads::Threads m)
 
+target_link_libraries(torpedo_main PRIVATE
+    Threads::Threads
+    m
+)
+
+# Optional allocator test
 if(EXISTS ${CMAKE_SOURCE_DIR}/tests/test_allocator.c)
     add_executable(allocator_test
         tests/test_allocator.c
@@ -46,6 +57,7 @@ if(EXISTS ${CMAKE_SOURCE_DIR}/tests/test_allocator.c)
     )
 
     target_include_directories(allocator_test PRIVATE
+        ${MAVLINK_DIR}
         ${CMAKE_SOURCE_DIR}/src
         ${GENERATED_DIR}
     )
@@ -55,9 +67,12 @@ if(EXISTS ${CMAKE_SOURCE_DIR}/tests/test_allocator.c)
         -Wextra
     )
 
-    target_link_libraries(allocator_test PRIVATE m)
+    target_link_libraries(allocator_test PRIVATE
+        m
+    )
 endif()
 
+# Copy final binary to parent folder after build
 get_filename_component(PARENT_DIR ${CMAKE_SOURCE_DIR} DIRECTORY)
 
 add_custom_command(TARGET torpedo_main POST_BUILD
@@ -65,3 +80,4 @@ add_custom_command(TARGET torpedo_main POST_BUILD
         $<TARGET_FILE:torpedo_main>
         ${PARENT_DIR}/torpedo_main
 )
+

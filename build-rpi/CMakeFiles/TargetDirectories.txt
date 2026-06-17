@@ -1,0 +1,4 @@
+/mnt/c/Users/tommy/Desktop/Expo60/EXPO-60-UnderwaterDrone/build-rpi/CMakeFiles/torpedo_main.dir
+/mnt/c/Users/tommy/Desktop/Expo60/EXPO-60-UnderwaterDrone/build-rpi/CMakeFiles/allocator_test.dir
+/mnt/c/Users/tommy/Desktop/Expo60/EXPO-60-UnderwaterDrone/build-rpi/CMakeFiles/edit_cache.dir
+/mnt/c/Users/tommy/Desktop/Expo60/EXPO-60-UnderwaterDrone/build-rpi/CMakeFiles/rebuild_cache.dir

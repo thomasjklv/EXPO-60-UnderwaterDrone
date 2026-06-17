@@ -1,0 +1,29 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build upload and ask to run torpedo_main on BlueOS",
+      "type": "shell",
+        "command": "wsl -d Ubuntu bash /mnt/c/Users/tommy/Desktop/Expo60/EXPO-60-UnderwaterDrone/scripts/build_upload_run.sh ${input:runAfterUpload}",     
+        "problemMatcher": [
+        "$gcc"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "id": "runAfterUpload",
+      "type": "pickString",
+      "description": "Upload completed successfully. Do you want to start torpedo_main on the Raspberry Pi now?",
+      "options": [
+        "yes",
+        "no"
+      ],
+      "default": "no"
+    }
+  ]
+}
